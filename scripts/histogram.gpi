@@ -1,0 +1,12 @@
+set boxwidth 5 # Probably 3-5.
+set xlabel "Frequency"
+set ylabel "Count"
+set log xy
+#set term svg # Create an SVG image
+set term postscript eps
+#set output 'file.svg'
+set output 'histogram.eps'
+set key off # Unless you really want a key
+# For this next line, lw is linewidth (2-4)?
+plot 'histogram_freq_number' with points 
+#plot [XMIN:XMAX] 'histogram_freq_number' with boxes lw VALUE

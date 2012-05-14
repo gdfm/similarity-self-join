@@ -1,0 +1,16 @@
+<ivy-module version="2.0">
+    <info organisation="com.yahoo.research" module="ssj"/>
+    <configurations>
+        <conf name="build"  description="build dependencies"/>
+        <conf name="runtime" description="runtime dependencies"/>
+        <conf name="test" extends="build, runtime" description="test dependencies"/>
+    </configurations>
+    <dependencies defaultconfmapping="*->default">
+        <dependency org="org.apache.hadoop" name="hadoop-core" rev="0.20.2" conf="build" transitive="false"/>
+        <dependency org="commons-logging" name="commons-logging" rev="1.1.1" conf="build"/>
+        <dependency org="net.sf.jopt-simple" name="jopt-simple" rev="3.2" conf="build, runtime"/>
+        <dependency org="org.jsoup" name="jsoup" rev="0.3.1" conf ='runtime'/>
+        <dependency org="junit" name="junit" rev="4.8.2" conf="test"/>
+        <exclude org="ant" artifact="ant" />
+    </dependencies>
+</ivy-module>

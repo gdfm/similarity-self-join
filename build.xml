@@ -1,67 +1,8 @@
-<project name="AllPairSimilarity" default="dist" basedir=".">
+<project name="SimilaritySelfJoin" default="dist.jar" basedir="." xmlns:ivy="antlib:org.apache.ivy.ant">
 	<description>
-    	AllPairSimilarity
-    </description>
-	<!-- set global properties for this build -->
-	<property name="src" location="src" />
-	<property name="build" location="build" />
-	<property name="dist" location="dist" />
-	<property name="lib" location="lib" />
-	<property name="deps" location="deps" />
-	<property name="debug" value="on" />
-
-	<path id="classpath">
-		<fileset dir="${lib}" includes="**/*.jar" />
-		<fileset dir="${deps}" includes="**/*.jar" />
-		<pathelement location="${build}" />
-	</path>
-
-	<target name="init">
-		<!-- Create the time stamp -->
-		<tstamp />
-		<!-- Create the build directory structure used by compile -->
-		<mkdir dir="${build}" />
-	</target>
-
-	<target name="compile" depends="init" description="compile the source ">
-		<!-- Compile the java code from ${src} into ${build} -->
-		<javac classpathref="classpath" srcdir="${src}" destdir="${build}" debug="${debug}" includeantruntime="false" />
-	</target>
-
-	<target name="dist" depends="compile" description="generate the distribution">
-		<!-- Create the distribution directory -->
-		<mkdir dir="${dist}" />
-		<mkdir dir="${build}/lib" />
-		<copy todir="${build}/lib">
-			<fileset dir="${deps}" includes="*" />
-		</copy>
-		<copy todir="${build}">
-			<fileset dir="${src}">
-				<include name="**/*.properties" />
-			</fileset>
-		</copy>
-		<!-- Put everything in ${build} into the ${ant.project.name}-${DSTAMP}.jar file -->
-		<jar jarfile="${dist}/${ant.project.name}-${DSTAMP}.jar" basedir="${build}" update="no">
-			<dirset dir="${build}" includes="lib" />
-			<!-- 	<fileset dir="${src}/resources"/> -->
-		</jar>
-	</target>
-
-    <target name="clean" description="clean up">
-            <!-- Delete the ${bin} directory tree -->
-            <delete dir="${build}" />
-    </target>
-
-    <target name="clea-all" depends="clean" description="clean up everything">
-            <!-- Delete the ${bin} and ${dist} directory trees -->
-            <delete dir="${dist}" />
-    </target>
-
-	<target name="deploy" depends="dist" description="deploy the distribution on remote server">
-		<property name="deploy.server" value="gdfm@tiberium-gw.tan.ygrid.yahoo.com" />
-		<exec executable="rsync">
-			<arg line="-e ssh -Cavz ${dist}/ ${deploy.server}:${ant.project.name}/dist" />
-		</exec>
-	</target>
-
+		Document Similarity Self-Join With Mapreduce (ICDM'10)
+	</description>
+	<property name="deploy.dirs" value="dist scripts" />
+	<property name="deploy.servers" value="gdfm@tiberium-gw.tan.ygrid.yahoo.com" />
+	<import file="skeleton.xml" />
 </project>

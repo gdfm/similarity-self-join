@@ -78,6 +78,7 @@ public class Similarity extends Configured implements Tool {
     private static final String factorOptName = "factor";
     private static final String stripesOptName = "stripes";
     private static final String spreadOptName = "spread";
+    private static final String maxVectorIDOptName = "maxid";
 
     private static final Log LOG = LogFactory.getLog(Similarity.class);
 
@@ -210,7 +211,7 @@ public class Similarity extends Configured implements Tool {
             if (list.size() > 1) { // do not output single valued posting lists
                 IndexItem buffer[] = list.toArray(new IndexItem[list.size()]);
                 // sort the posting list in order to generate pairs in order
-                Arrays.sort(buffer); // TODO use Hadoop'S secondary sort
+                Arrays.sort(buffer); // TODO use Hadoop secondary sort
                 output.collect(key, new IndexItemArrayWritable(buffer));
             }
         }
@@ -455,6 +456,8 @@ public class Similarity extends Configured implements Tool {
                 .ofType(Integer.class).defaultsTo(DEFAULT_SPREAD);
         OptionSpec<Integer> factorOpt = p.accepts(factorOptName, "number of mappers per reducer").withRequiredArg()
                 .ofType(Integer.class).defaultsTo(DEFAULT_FACTOR);
+        OptionSpec<Integer> maxVectorIDOpt = p.accepts(maxVectorIDOptName, "maximum vector ID").withRequiredArg()
+                .ofType(Integer.class);
         p.acceptsAll(Arrays.asList("h", "?"), "show help");
 
         OptionSet options = parseOptions(p, args);
@@ -486,6 +489,15 @@ public class Similarity extends Configured implements Tool {
         if (factor < 1) {
             System.err.println(factorOptName + " should be > 0");
             System.exit(1);
+        }
+
+        int maxKey = 0;
+        if (options.has(maxVectorIDOpt)) {
+            maxKey = options.valueOf(maxVectorIDOpt); // maximum value of the vector ID
+            if (maxKey < 1) {
+                System.err.println(maxVectorIDOptName + " should be > 0");
+                System.exit(1);
+            }
         }
 
         int numReducers = GenericKey.StripePartitioner.numReducers(numStripes, spread);
@@ -558,8 +570,10 @@ public class Similarity extends Configured implements Tool {
         conf2.setOutputValueClass(NullWritable.class);
 
         Counter numDocs = job1.getCounters().findCounter("org.apache.hadoop.mapred.Task$Counter", "MAP_INPUT_RECORDS");
-        LOG.info("Setting max key value in input to " + numDocs.getValue());
-        conf2.setInt(PARAM_APS_MAXKEY, (int) numDocs.getValue());
+        maxKey = maxKey > 0 ? maxKey : (int) numDocs.getValue();
+        LOG.info("Setting max key value in input to " + maxKey);
+        conf2.setInt(PARAM_APS_MAXKEY, maxKey);
+
         conf2.setInt(PARAM_APS_STRIPES, numStripes);
         conf2.setFloat(PARAM_APS_THRESHOLD, threshold);
         conf2.setInt(PARAM_APS_REDUCER_PER_STRIPE, spread);

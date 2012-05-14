@@ -1,0 +1,192 @@
+<project xmlns:ivy="antlib:org.apache.ivy.ant">
+	<!-- default values -->
+	<property name="src.dir" location="src" />
+	<property name="test.dir" location="test" />
+	<property name="build.dir" location="bin" />
+	<property name="dist.dir" location="dist" />
+	<property name="lib.dir" location="lib" />
+	<property name="lib-local.dir" location="lib-local" />
+	<property name="lib-runtime.dir" value="${lib.dir}/runtime" />
+	<property name="lib-build.dir" location="${lib.dir}/build" />
+	<property name="lib-test.dir" location="${lib.dir}/test" />
+	<property name="report.dir" location="report" />
+	<property name="debug" value="on" />
+	<property name="deploy.dirs" value="${dist.dir}" />
+
+	<property name="ivy.install.version" value="2.2.0" />
+	<property name="ivy.jar.dir" value="ivy" />
+	<property name="ivy.jar.file" value="${ivy.jar.dir}/ivy.jar" />
+
+	<target name="init.dir" depends="ivy.environment">
+		<!-- Create the time stamp -->
+		<tstamp />
+		<!-- Create the build directory structure used by compile -->
+		<mkdir dir="${build.dir}" />
+		<mkdir dir="${lib.dir}" />
+	</target>
+
+	<target name="build.classes" depends="init.dir, lib.classpaths" description="compile the source">
+		<!-- Compile the java code from src into build -->
+		<javac classpathref="build.classpath" srcdir="${src.dir}" destdir="${build.dir}" debug="${debug}" includeantruntime="false" />
+	</target>
+
+	<target name="dist.jar" depends="build.classes, lib.classpaths" description="generate the distribution">
+		<!-- Create the distribution directory -->
+		<mkdir dir="${dist.dir}" />
+		<copy todir="${build.dir}">
+			<fileset dir="${src.dir}">
+				<include name="**/*.properties" />
+				<include name="**/*.txt" />
+			</fileset>
+		</copy>
+		<!-- Put the build into the ${ant.project.name}-${DSTAMP}.jar file -->
+		<jar jarfile="${dist.dir}/${ant.project.name}-${DSTAMP}.jar" basedir="${build.dir}" update="no">
+			<!-- Include the runtime dependecies -->
+			<zipfileset prefix="lib" refid="lib-runtime" />
+			<zipfileset prefix="lib" refid="lib-local" />
+			<manifest>
+				<attribute name="Built-By" value="${user.name}" />
+				<attribute name="Built-Date" value="${DSTAMP}" />
+			</manifest>
+		</jar>
+	</target>
+
+	<target name="clean" description="clean up">
+		<!-- Delete the build directory tree -->
+		<delete dir="${build.dir}" />
+	</target>
+
+	<target name="clean-all" depends="clean, clean-lib, clean-ivy" description="clean up everything">
+		<!-- Delete everything else -->
+		<delete dir="${dist.dir}" />
+	</target>
+
+	<target name="test.classes" depends="build.classes, lib.classpaths" description="compile the test">
+		<!-- Compile the java code from test into build -->
+		<javac classpathref="test.classpath" srcdir="${test.dir}" destdir="${build.dir}" debug="${debug}" includeantruntime="false" />
+	</target>
+
+	<target name="test" depends="dist.jar,test.classes" description="test the distribution">
+		<!-- Run JUnit testsuite -->
+		<mkdir dir="${report.dir}" />
+		<junit printsummary="yes" haltonfailure="yes">
+			<jvmarg value="-ea" />
+			<classpath refid="test.classpath" />
+			<formatter type="plain" />
+			<batchtest fork="yes" todir="${report.dir}">
+				<fileset dir="${test.dir}">
+					<include name="**/*Test*.java" />
+				</fileset>
+			</batchtest>
+		</junit>
+	</target>
+
+	<target name="deploy" depends="deploy.check,dist.jar" description="deploy the distribution on remote server" if="deploy.run">
+		<!-- <exec executable="xargs" inputstring="${deploy.servers}"> -->
+		<exec executable="gxargs" inputstring="${deploy.servers}">
+			<arg line="-t -P4 -d',' -I'{}'  rsync -e ssh -Cavz ${deploy.dirs} '{}':${ant.project.name}/" />
+		</exec>
+	</target>
+
+	<target name="deploy.check">
+		<condition property="deploy.run" value="true">
+			<isset property="deploy.servers" />
+		</condition>
+	</target>
+
+	<target name="ivy.jar" unless="ivy.uptodate" description="--> download ivy">
+		<mkdir dir="${ivy.jar.dir}" />
+		<!-- download Ivy from web site so that it can be used even without any special installation -->
+		<get src="http://repo1.maven.org/maven2/org/apache/ivy/ivy/${ivy.install.version}/ivy-${ivy.install.version}.jar" dest="${ivy.jar.file}" usetimestamp="true" />
+	</target>
+
+	<target name="ivy.environment" depends="ivy.jar" description="--> install ivy">
+		<!-- try to load ivy here from local ivy dir, in case the user has not already dropped
+	              it into ant's lib dir (note that the latter copy will always take precedence).
+	              We will not fail as long as local lib dir exists (it may be empty) and
+	              ivy is in at least one of ant's lib dir or the local lib dir. -->
+		<path id="ivy.lib.path">
+			<fileset dir="${ivy.jar.dir}" includes="*.jar" />
+		</path>
+		<taskdef resource="org/apache/ivy/ant/antlib.xml" uri="antlib:org.apache.ivy.ant" classpathref="ivy.lib.path" />
+	</target>
+
+	<target name="lib.uptodate">
+		<uptodate property="lib.uptodate" targetfile="${lib.dir}/.touch">
+			<srcfiles dir="${basedir}" includes="ivy.xml,skeleton.xml,build.xml,${ivy.jar.file}" />
+		</uptodate>
+		<!-- all filesets point to lib, overridden if lib-xxx.dir exists -->
+		<fileset id="lib-local" dir="${lib.dir}" excludes="**" />
+		<fileset id="lib-runtime" dir="${lib.dir}" excludes="**" />
+		<fileset id="lib-build" dir="${lib.dir}" excludes="**" />
+		<fileset id="lib-test" dir="${lib.dir}" excludes="**" />
+	</target>
+
+	<target name="lib.available">
+		<available file="${lib-local.dir}" type="dir" property="${lib-local.dir.exists}" />
+		<available file="${lib-runtime.dir}" type="dir" property="${lib-runtime.dir.exists}" />
+		<available file="${lib-build.dir}" type="dir" property="${lib-build.dir.exists}" />
+		<available file="${lib-test.dir}" type="dir" property="${lib-test.dir.exists}" />
+	</target>
+
+	<target name="lib.jars" depends="lib.uptodate, ivy.environment" unless="lib.uptodate" description="--> retrieve dependencies with ivy">
+		<ivy:retrieve pattern="lib/[conf]/[artifact]-[revision].[ext]" sync="true" />
+		<touch file="${lib.dir}/.touch" />
+	</target>
+
+	<target name="lib-local.jars" depends="lib.available" if="${lib-local.dir.exists}">
+		<fileset id="lib-local" dir="${lib-local.dir}">
+			<include name="**/*.jar" />
+		</fileset>
+	</target>
+
+	<target name="lib-runtime.jars" depends="lib.available" if="${lib-runtime.dir.exists}">
+		<fileset id="lib-runtime" dir="${lib-runtime.dir}">
+			<include name="**/*.jar" />
+		</fileset>
+	</target>
+
+	<target name="lib-build.jars" depends="lib.available" if="${lib-build.dir.exists}">
+		<fileset id="lib-build" dir="${lib-build.dir}">
+			<include name="**/*.jar" />
+		</fileset>
+	</target>
+
+	<target name="lib-test.jars" depends="lib.available" if="${lib-test.dir.exists}">
+		<fileset id="lib-test" dir="${lib-test.dir}">
+			<include name="**/*.jar" />
+		</fileset>
+	</target>
+
+	<target name="lib.classpaths" depends="lib.jars, lib-local.jars, lib-runtime.jars, lib-build.jars, lib-test.jars" description="compose the classpaths">
+		<!-- we don't know which configurations use lib-local, so add it everywhere -->
+		<path id="runtime.classpath">
+			<fileset refid="lib-runtime" />
+			<fileset refid="lib-local" />
+		</path>
+
+		<path id="build.classpath">
+			<fileset refid="lib-build" />
+			<fileset refid="lib-local" />
+		</path>
+
+		<path id="test.classpath">
+			<fileset refid="lib-test" />
+			<fileset refid="lib-local" />
+			<!-- add test classes which are not in the jar -->
+			<pathelement location="${build.dir}" />
+		</path>
+	</target>
+
+	<target name="clean-ivy" description="--> clean the ivy installation">
+		<delete dir="${ivy.jar.dir}" />
+	</target>
+
+	<target name="clean-cache" depends="ivy.environment" description="--> clean the ivy cache">
+		<ivy:cleancache />
+	</target>
+
+	<target name="clean-lib" description="--> clean the lib directory">
+		<delete dir="${lib.dir}" />
+	</target>
+</project>
